@@ -10,8 +10,9 @@ def play_song(local_path):
 
     subprocess.run([
         "mpv",
+        "--audio-device=alsa/plughw:CARD=MAX98357A,DEV=0",
         "--no-video",
         "--no-config",
-        "--volume=1",
+        "--volume=20",
         str(path)
     ])

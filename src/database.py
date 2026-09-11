@@ -21,6 +21,9 @@ def get_song_by_nfcid(nfc_id):
         .execute()
     )
 
+    if response is None:
+        return None
+
     return response.data["songs"]
 
 def download_song(storage_path):
