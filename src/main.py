@@ -1,28 +1,42 @@
 from audio import *
 from database import *
+from encoder import *
 from nfc_reader import *
 
 def main():
 
-    while True:
+    print("Starting mpv")
+    start_mpv()
+    print("MPV fully started")
 
-        nfc_id = None
+    try:
 
-        while nfc_id is None:
-            nfc_id = detect_nfc()
+        while True:
 
-        print(f"Detected NFC: {nfc_id}")
+            nfc_id = None
+            while nfc_id == None:
+                nfc_id = detect_nfc()
 
-        song_info = get_song_by_nfcid(nfc_id)
+            print(f"Detected NFC: {nfc_id}")
 
-        if song_info is None:
-            print(f"No song assigned to NFC tag {nfc_id}")
-            continue
+            song_info = get_song_by_nfcid(nfc_id)
+            if song_info is None:
+                print("No song assigned to record")
+                continue
 
-        print(f"Song info: {song_info}")
+            print(f'Track Name: [{song_info["name"]}]')
 
-        local_path = download_song(song_info["filepath"])
-        play_song(local_path)
+            local_path = download_song(song_info["filepath"])
+
+            print("Playing song...")
+            play_song(local_path)
+            song_finished.wait()
+            print("Song finished")
+
+    finally:
+
+        stop_mpv()
+
 
 if __name__ == "__main__":
-    main()
+     main()
