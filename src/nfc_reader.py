@@ -39,9 +39,7 @@ def monitor_nfc(record_id, on_removed, stop_event):
         nfc_id = detect_nfc()
         if nfc_id == record_id:
             blank_reads = 0
-            print("Reading same record")
         else:
-            print("Read blank")
             blank_reads += 1
         if blank_reads >= 2:
             print("Record removed")
