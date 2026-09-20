@@ -17,6 +17,11 @@ playhead = 0
 manual_stop = threading.Event()
 song_finished = threading.Event()
 
+seek_timer = None
+pending_seek = 0
+initiated_seek = 0
+seek_steps = 0
+
 def find_audio_device():
 
     devices = sd.query_devices()
@@ -33,6 +38,8 @@ def find_audio_device():
 
 
 def decode_song(local_path):
+
+    start_time = time.perf_counter()
 
     command = [
         "ffmpeg",
@@ -58,11 +65,23 @@ def decode_song(local_path):
     )
 
     audio = audio.reshape(-1, CHANNELS)
+
+    end_time = time.perf_counter()
+    print(
+        f"Decoded in {end_time - start_time:.3f} seconds"
+    )
     return audio
 
 
 def audio_callback(outdata, frames, time_info, status):
     global playhead
+    global initiated_seek
+    playhead += initiated_seek
+    if playhead < 0:
+        playhead = 0
+    if playhead > len(current_audio):
+        playhead = len(current_audio)
+    initiated_seek = 0
 
     outdata.fill(0)
 
@@ -124,17 +143,43 @@ def stop_song():
     manual_stop.set()
 
 
-def increase_volume():
+def increment_volume(increment):
     global volume
-    volume += 0.01
+    volume += increment
     if volume > 1.00:
         volume = 1.00
-    print(f"Volume: {volume:.2f}")
-
-
-def decrease_volume():
-    global volume
-    volume -= 0.01
-    if volume < 0:
+    if volume < 0.00:
         volume = 0
     print(f"Volume: {volume:.2f}")
+
+
+def perform_seek():
+    global seek_timer
+    global pending_seek
+    global initiated_seek
+    global seek_steps
+
+    prev_steps = min(10, seek_steps)
+    seek_steps = 0
+    initiated_seek = pending_seek
+    pending_seek = 0
+    seek_timer = None
+    volume_increment = volume / 10
+    increment_volume(-1 * prev_steps * volume_increment)
+    for i in range(11 - prev_steps, 11):
+        increment_volume(volume_increment)
+        time.sleep(0.05)
+
+
+def seek(seconds):
+    global seek_timer
+    global pending_seek
+    global seek_steps
+
+    pending_seek += SAMPLE_RATE * seconds
+
+    if seek_timer is not None:
+        seek_timer.cancel()
+    seek_steps += 1
+    seek_timer = threading.Timer(0.1, perform_seek)
+    seek_timer.start()
