@@ -3,6 +3,7 @@ import time
 
 from audio import *
 from yt_download import *
+from platter import *
 
 FAILED = -1
 UNKNOWN = 0
@@ -41,7 +42,9 @@ def song_loop():
     global playing_index
     global player_active
 
-    while True:
+    start_motor()
+
+    while player_active:
 
         current_index = playing_index
         if current_index >= len(songs):
@@ -65,15 +68,19 @@ def song_loop():
                 playing_index += 1
 
     player_active = False
+    stop_motor()
     print("Playlist commenced")
 
 def download_worker():
 
     global download_status
+    songs_checked = 0
 
     while player_active:
 
-        song_downloaded = False
+        if songs_checked == len(songs):
+            print(f"Download worker finished")
+            return
 
         for song_index in range(0, len(songs)):
             download_index = (playing_index + song_index) % len(songs)
@@ -84,6 +91,7 @@ def download_worker():
             if get_cached_path(songs[download_index]) is not None:
                 print(f"Song {download_index} already exists in cache")
                 download_status[download_index] = DOWNLOADED
+                songs_checked += 1
                 continue
 
             else:
@@ -91,12 +99,16 @@ def download_worker():
                 if song_path is not None:
                     print(f"Song {download_index} downloaded successfully")
                     download_status[download_index] = DOWNLOADED
-                    song_downloaded = True
-                    break
+                    songs_checked += 1
                 else:
                     print(f"Error while downloading song {download_index}")
                     download_status[download_index] = FAILED
+                    songs_checked += 1
 
-        if song_downloaded is False:
-            return
 
+def stop_playlist():
+
+    global player_active
+
+    player_active = False
+    stop_song()

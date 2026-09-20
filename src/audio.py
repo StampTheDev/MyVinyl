@@ -1,4 +1,6 @@
 import subprocess
+import threading
+import time
 
 import numpy as np
 import sounddevice as sd
@@ -7,7 +9,9 @@ import sounddevice as sd
 SAMPLE_RATE = 48000
 CHANNELS = 2
 
-volume = 0.05
+volume = 0.2
+
+manual_stop = threading.Event()
 
 
 def find_audio_device():
@@ -68,15 +72,25 @@ def play_song(local_path):
     output = audio * volume
     print(f"Playing {local_path}")
 
+    manual_stop.clear()
+
     sd.play(
         output,
         samplerate=SAMPLE_RATE,
         device=device
     )
 
-    sd.wait()
+    stream = sd.get_stream()
+
+    while stream.active:
+
+        if manual_stop.is_set():
+            sd.stop()
+            return
+
+        time.sleep(0.02)
 
 
 def stop_song():
 
-    sd.stop()
+    manual_stop.set()
