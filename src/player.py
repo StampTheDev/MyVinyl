@@ -54,7 +54,9 @@ def start_playlist(tracks):
     )
     download_thread.start()
 
+    # Enters music player loop
     song_loop()
+
 
 # Repeatedly plays songs until the end of a playlist
 def song_loop():
@@ -65,8 +67,6 @@ def song_loop():
     global prev_decoded
     global curr_decoded
     global next_decoded
-
-    start_motor()
 
     # If player is shut off manually, exit the song loop
     while playlist_active:
@@ -87,9 +87,8 @@ def song_loop():
 
         # Once song is found in cache, fetch past decode or decode manually
         else:
-            
+            start_motor()
             print(f"NOW PLAYING: [{songs[playing_index]["name"]}]")
-
             song_path = get_cached_path(songs[current_index])
             song_audio = None
             if curr_decoded is not None:
@@ -229,10 +228,12 @@ def stop_playlist():
     end_current_song()
 
 
+# Skips to the next song, or end the playlist if last song
 def skip():
-
     end_current_song()
 
+
+# Goes to the previous song, if a previous song exists
 def go_back():
 
     global playing_index

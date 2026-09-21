@@ -3,6 +3,7 @@ from config import SUPABASE_KEY, SUPABASE_URL
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+# Retrieves all songs in order of record's playlist
 def retrieve_playlist(nfc_id):
 
     response = (
@@ -13,5 +14,4 @@ def retrieve_playlist(nfc_id):
         .order("playlist_order")
         .execute()
     )
-
     return response.data

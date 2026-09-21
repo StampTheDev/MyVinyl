@@ -23,18 +23,21 @@ def main():
             wait_for_record_removal(nfc_id)
             continue
 
+        # Initialize thread to detect if record is removed
         monitor_stop = threading.Event()
-
         monitor_thread = threading.Thread(
             target=monitor_nfc,
             args=(nfc_id, stop_playlist, monitor_stop), daemon=True)
         monitor_thread.start()
 
+        # Start playlist
         start_playlist(tracks)
 
+        # Remove disk monitor once playlist ends
         monitor_stop.set()
         monitor_thread.join()
 
+        # Once playlist ends, record must be removed before any disk will be read
         wait_for_record_removal(nfc_id)
         print(f"Waiting for next record")
 
