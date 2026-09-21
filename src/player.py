@@ -31,12 +31,21 @@ def start_playlist(tracks):
     global download_status
     global playing_index
     global playlist_active
+    global last_played_index
+    global prev_decoded
+    global curr_decoded
+    global next_decoded
 
     songs = tracks
     download_status = [UNKNOWN] * len(tracks)
 
     playing_index = 0
     playlist_active = True
+    last_played_index = 0
+
+    prev_decoded = None
+    curr_decoded = None
+    next_decoded = None
 
     # Starts a downloader thread to pre-download all songs in playlist
     download_thread = threading.Thread(
@@ -79,19 +88,14 @@ def song_loop():
         # Once song is found in cache, fetch past decode or decode manually
         else:
             
-            start_time = time.perf_counter()
+            print(f"NOW PLAYING: [{songs[playing_index]["name"]}]")
 
             song_path = get_cached_path(songs[current_index])
             song_audio = None
             if curr_decoded is not None:
                 song_audio = curr_decoded
-                print("Shortcut decode")
             else:  
                 song_audio = decode_song(song_path)
-                print("Manual decode")
-
-            end_time = time.perf_counter()
-            print(f"Decoded in {end_time - start_time:.3f} seconds")
 
             # Start decoder threads for nearby songs, if applicable
             if current_index > 0 and prev_decoded is None:
@@ -115,14 +119,12 @@ def song_loop():
 
             # If no rewind was called, move forward a song and preserve decoded audio
             if playing_index == current_index:
-                print("Forwarding song...")
                 playing_index += 1
                 curr_decoded = next_decoded
                 prev_decoded = song_audio
                 next_decoded = None
             # If rewind was called, go back a song and preserve decoded audio
             else:
-                print("Going back a song...")
                 curr_decoded = prev_decoded
                 prev_decoded = None
                 next_decoded = song_audio
@@ -147,7 +149,6 @@ def decode_prev(song_index):
     audio = decode_song(song_path)
     if playing_index - 1 == song_index:
         prev_decoded = audio
-        print(f"Song at index {song_index} was decoded early")
 
 
 # Helper function for decoder thread
@@ -163,7 +164,6 @@ def decode_next(song_index):
     audio = decode_song(song_path)
     if playing_index + 1 == song_index:
         next_decoded = audio
-        print(f"Song at index {song_index} was decoded early")
 
 
 # Ran by song download thread to download all songs in the background
@@ -177,7 +177,6 @@ def download_worker():
 
         # Once all songs are downloaded, return
         if songs_found == len(songs):
-            print(f"Download worker finished")
             return
 
         # Downloads all undownloaded songs starting from current song and moving forward
@@ -189,7 +188,6 @@ def download_worker():
                 continue
 
             if get_cached_path(songs[download_index]) is not None:
-                print(f"Song {download_index} already exists in cache")
                 download_status[download_index] = DOWNLOADED
                 songs_found += 1
                 continue
@@ -198,11 +196,9 @@ def download_worker():
             else:
                 song_path = download_song(songs[download_index])
                 if song_path is not None:
-                    print(f"Song {download_index} downloaded successfully")
                     download_status[download_index] = DOWNLOADED
                     songs_found += 1
                 else:
-                    print(f"Error while downloading song {download_index}")
                     download_status[download_index] = FAILED
                     songs_found += 1
 

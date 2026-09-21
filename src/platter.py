@@ -8,10 +8,8 @@ platter_motor = Motor(
 
 
 def start_motor():
-    print("Starting motor")
     platter_motor.backward(0.1)
 
 
 def stop_motor():
-    print("Stopping motor")
     platter_motor.stop()

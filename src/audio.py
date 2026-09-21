@@ -5,6 +5,8 @@ import time
 import numpy as np
 import sounddevice as sd
 
+from platter import *
+
 SAMPLE_RATE = 48000
 CHANNELS = 2
 
@@ -15,6 +17,7 @@ playhead = 0
 
 manual_stop = threading.Event()
 song_finished = threading.Event()
+paused = threading.Event()
 
 seek_timer = None
 pending_seek = 0
@@ -78,7 +81,7 @@ def audio_callback(outdata, frames, time_info, status):
     playhead += initiated_seek
     if playhead < 0:
         playhead = 0
-    if playhead > len(current_audio):
+    if current_audio is not None and playhead > len(current_audio):
         playhead = len(current_audio)
     initiated_seek = 0
 
@@ -86,6 +89,9 @@ def audio_callback(outdata, frames, time_info, status):
 
     if manual_stop.is_set() or current_audio is None:
         raise sd.CallbackStop
+
+    if paused.is_set():
+        return
 
     end_pos = min(playhead + frames, len(current_audio))
     frames_available = end_pos - playhead
@@ -144,7 +150,6 @@ def increment_volume(increment):
         volume = 1.00
     if volume < 0.00:
         volume = 0
-    print(f"Volume: {volume:.2f}")
 
 
 def perform_seek():
@@ -177,3 +182,12 @@ def seek(seconds):
     seek_steps += 1
     seek_timer = threading.Timer(0.1, perform_seek)
     seek_timer.start()
+
+
+def toggle_pause():
+    if paused.is_set():
+        paused.clear()
+        start_motor()
+    else:
+        paused.set()
+        stop_motor()

@@ -32,8 +32,6 @@ def monitor_nfc(record_id, on_removed, stop_event):
 
     blank_reads = 0
 
-    print("NFC Monitor started")
-
     while not stop_event.is_set():
 
         nfc_id = detect_nfc()
