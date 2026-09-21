@@ -5,7 +5,6 @@ import time
 import numpy as np
 import sounddevice as sd
 
-
 SAMPLE_RATE = 48000
 CHANNELS = 2
 
@@ -39,8 +38,6 @@ def find_audio_device():
 
 def decode_song(local_path):
 
-    start_time = time.perf_counter()
-
     command = [
         "ffmpeg",
         "-v", "error",
@@ -66,14 +63,16 @@ def decode_song(local_path):
 
     audio = audio.reshape(-1, CHANNELS)
 
-    end_time = time.perf_counter()
-    print(
-        f"Decoded in {end_time - start_time:.3f} seconds"
-    )
+    if manual_stop.is_set():
+        manual_stop.clear()
+        current_audio = None
+        return None
+
     return audio
 
 
 def audio_callback(outdata, frames, time_info, status):
+
     global playhead
     global initiated_seek
     playhead += initiated_seek
@@ -103,25 +102,21 @@ def on_song_finished():
     song_finished.set()
 
 
-def play_song(local_path):
+def on_song_start():
+    song_finished.clear()
+
+
+def play_song(audio):
 
     global current_audio
     global playhead
 
     song_finished.clear()
 
-    print(f"Decoding {local_path}")
-    current_audio = decode_song(local_path)
-
-    if manual_stop.is_set():
-        manual_stop.clear()
-        current_audio = None
-        return
-
+    current_audio = audio
     playhead = 0
 
     device = find_audio_device()
-    print(f"Playing {local_path}")
 
     with sd.OutputStream(
         samplerate=SAMPLE_RATE,
@@ -131,14 +126,13 @@ def play_song(local_path):
         callback=audio_callback,
         finished_callback=on_song_finished
     ):
-        song_finished.wait()        
+        song_finished.wait()
 
     current_audio = None
-
     manual_stop.clear()
 
 
-def stop_song():
+def end_current_song():
 
     manual_stop.set()
 

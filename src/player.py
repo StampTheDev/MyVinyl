@@ -5,110 +5,242 @@ from audio import *
 from yt_download import *
 from platter import *
 
+# Song download statuses
 FAILED = -1
 UNKNOWN = 0
 DOWNLOADED = 1
 
+# Holds song info and their download statuses
 songs = []
 download_status = []
 
+# Holds index of playing song, and player online status
+last_played_index = 0
 playing_index = 0
-player_active = False
+playlist_active = False
 
+# Used to store pre-decoded song bytes
+prev_decoded = None
+curr_decoded = None
+next_decoded = None
+
+# Playlist setup, then starts song loop
 def start_playlist(tracks):
 
     global songs
     global download_status
     global playing_index
-    global player_active
+    global playlist_active
 
     songs = tracks
     download_status = [UNKNOWN] * len(tracks)
 
     playing_index = 0
-    player_active = True
+    playlist_active = True
 
+    # Starts a downloader thread to pre-download all songs in playlist
     download_thread = threading.Thread(
         target=download_worker,
         daemon=True
     )
-
     download_thread.start()
 
     song_loop()
 
+# Repeatedly plays songs until the end of a playlist
 def song_loop():
 
     global playing_index
-    global player_active
+    global playlist_active
+    global last_played_index
+    global prev_decoded
+    global curr_decoded
+    global next_decoded
 
     start_motor()
 
-    while player_active:
+    # If player is shut off manually, exit the song loop
+    while playlist_active:
 
+        # If song index goes past playlist length, end playlist
         current_index = playing_index
         if current_index >= len(songs):
             break
 
-        current_status = download_status[playing_index]
+        # Wait for download or skip a failed download
+        current_status = download_status[current_index]
         if current_status == UNKNOWN:
             time.sleep(0.05)
             continue
-
         if current_status == FAILED:
             playing_index += 1
             continue
 
+        # Once song is found in cache, fetch past decode or decode manually
         else:
+            
+            start_time = time.perf_counter()
+
             song_path = get_cached_path(songs[current_index])
-            print(f"Playing song {current_index}")
-            play_song(song_path)
+            song_audio = None
+            if curr_decoded is not None:
+                song_audio = curr_decoded
+                print("Shortcut decode")
+            else:  
+                song_audio = decode_song(song_path)
+                print("Manual decode")
 
+            end_time = time.perf_counter()
+            print(f"Decoded in {end_time - start_time:.3f} seconds")
+
+            # Start decoder threads for nearby songs, if applicable
+            if current_index > 0 and prev_decoded is None:
+                prev_thread = threading.Thread(
+                    target=decode_prev,
+                    args=(current_index - 1,),
+                    daemon=True
+                ) 
+                prev_thread.start()
+            if current_index < len(songs) - 1 and next_decoded is None:
+                next_thread = threading.Thread(
+                    target=decode_next,
+                    args=(current_index + 1,),
+                    daemon=True
+                )
+                next_thread.start()
+
+            # Store song index and play chosen song
+            last_played_index = playing_index
+            play_song(song_audio)
+
+            # If no rewind was called, move forward a song and preserve decoded audio
             if playing_index == current_index:
+                print("Forwarding song...")
                 playing_index += 1
+                curr_decoded = next_decoded
+                prev_decoded = song_audio
+                next_decoded = None
+            # If rewind was called, go back a song and preserve decoded audio
+            else:
+                print("Going back a song...")
+                curr_decoded = prev_decoded
+                prev_decoded = None
+                next_decoded = song_audio
 
-    player_active = False
+
+    # Once last song ends, turn off playlist
+    playlist_active = False
     stop_motor()
-    print("Playlist commenced")
+    print("Playlist finished")
 
+
+# Helper function for decoder thread for previous song
+def decode_prev(song_index):
+    global prev_decoded
+
+    # Wait until song is downloaded
+    song_path = wait_for_download(song_index)
+    if song_path is None:
+        return
+    
+    # Decode song, and store it if correct song is still being played
+    audio = decode_song(song_path)
+    if playing_index - 1 == song_index:
+        prev_decoded = audio
+        print(f"Song at index {song_index} was decoded early")
+
+
+# Helper function for decoder thread
+def decode_next(song_index):
+    global next_decoded
+
+    # Wait until song is downloaded
+    song_path = wait_for_download(song_index)
+    if song_path is None:
+        return
+
+    # Decode song, and store it if correct song is still being played
+    audio = decode_song(song_path)
+    if playing_index + 1 == song_index:
+        next_decoded = audio
+        print(f"Song at index {song_index} was decoded early")
+
+
+# Ran by song download thread to download all songs in the background
 def download_worker():
 
     global download_status
-    songs_checked = 0
+    songs_found = 0
 
-    while player_active:
+    # If playlist suddenly ends, return immediately
+    while playlist_active:
 
-        if songs_checked == len(songs):
+        # Once all songs are downloaded, return
+        if songs_found == len(songs):
             print(f"Download worker finished")
             return
 
+        # Downloads all undownloaded songs starting from current song and moving forward
         for song_index in range(0, len(songs)):
             download_index = (playing_index + song_index) % len(songs)
 
+            # Skip any song that downloaded, failed to download, or is in cache
             if (download_status[download_index] != UNKNOWN):
                 continue
 
             if get_cached_path(songs[download_index]) is not None:
                 print(f"Song {download_index} already exists in cache")
                 download_status[download_index] = DOWNLOADED
-                songs_checked += 1
+                songs_found += 1
                 continue
 
+            # If song hasn't been downloaded, attempt a download
             else:
                 song_path = download_song(songs[download_index])
                 if song_path is not None:
                     print(f"Song {download_index} downloaded successfully")
                     download_status[download_index] = DOWNLOADED
-                    songs_checked += 1
+                    songs_found += 1
                 else:
                     print(f"Error while downloading song {download_index}")
                     download_status[download_index] = FAILED
-                    songs_checked += 1
+                    songs_found += 1
 
 
+# Waits until a song has been downloaded, and returns its path
+def wait_for_download(song_index):
+
+    # If playlist ends, return immediately
+    while playlist_active:
+
+        # If download failed, return None
+        if download_status[song_index] == FAILED:
+            return None
+
+        # If the song's path exists, the download succeeded, and return it
+        song_path = get_cached_path(songs[song_index])
+        if song_path is not None:
+            return song_path
+
+        time.sleep(0.05)
+
+
+# Ends the playlist
 def stop_playlist():
 
-    global player_active
+    global playlist_active
+    playlist_active = False
+    end_current_song()
 
-    player_active = False
-    stop_song()
+
+def skip():
+
+    end_current_song()
+
+def go_back():
+
+    global playing_index
+
+    if playing_index > 0:
+        playing_index -= 1
+        end_current_song()
