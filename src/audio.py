@@ -124,10 +124,12 @@ def play_song(audio):
 
     global current_audio
     global playhead
+    global volume
 
     song_finished.clear()
     current_audio = audio
     playhead = 0
+    volume = 0.5
 
     # Find audio device and play aloud, wait until song ends
     device = find_audio_device()

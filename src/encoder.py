@@ -15,13 +15,13 @@ skip_detect = False
 # Decreases the volume by 0.01, disabled if paused
 def volume_down():
     if not paused:
-        increment_volume(-0.01)
+        increment_volume(-0.02)
 
 
 # Increases the volume by 0.01, disabled if paused
 def volume_up():
     if not paused:
-        increment_volume(0.01)
+        increment_volume(0.02)
 
 
 # Seeks backward by one second, disabled if paused

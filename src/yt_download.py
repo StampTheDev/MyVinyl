@@ -7,8 +7,7 @@ from pathlib import Path
 CACHE_DIR = Path(__file__).resolve().parent.parent / "song_cache"
 
 # Size limit of cache (5 GB)
-MAX_CACHE = 14000000
-# MAX_CACHE = 5368709120
+MAX_CACHE = 5368709120
 
 # Examines cache and clears space if necessary, and downloads song
 def download_song(song):
@@ -21,7 +20,6 @@ def download_song(song):
 
     # Estimate download size
     download_size = estimate_download_size(song)
-    print(f"Estimated download size: {download_size}")
 
     # Frees up space in cache if needed
     free_up_cache(download_size)
@@ -106,8 +104,6 @@ def free_up_cache(estimated_size):
         if not path.name.endswith(".part"):
             LRU.append(path)
 
-    print(f"Total cache size: {total_cache_size}")
-
     # If file can already fit, return without deletion
     if total_cache_size + estimated_size <= MAX_CACHE:
         return
@@ -122,7 +118,6 @@ def free_up_cache(estimated_size):
             return
 
         file_size = file.stat().st_size
-        print(f"Removing cached song {file.name} w/ size {file_size}")
         file.unlink()
         total_cache_size -= file_size
 
