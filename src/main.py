@@ -42,4 +42,8 @@ def main():
         print(f"Waiting for next record")
 
 if __name__ == "__main__":
-     main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\nStopping MyVinyl...")
+        platter_motor.stop()

@@ -40,7 +40,7 @@ def download_song(song):
             check=True
         )
     except subprocess.CalledProcessError as error:
-        print(f"Failed to download {song['custom_name']}")
+        print(f"Failed to download {song['name']}")
         print(error.stderr)
         return None
 
@@ -73,7 +73,7 @@ def estimate_download_size(song):
 
     # If yt-dlp fails, return the approximate biggest size allowed (25 MB)
     except subprocess.CalledProcessError as error:
-        print(f"Failed to retrieve metadata for {song['custom_name']}")
+        print(f"Failed to retrieve metadata for {song['name']}")
         print(error.stderr)
         return 26214400
 
