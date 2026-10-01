@@ -101,3 +101,89 @@ python src/main.py
 MyVinyl will wait for a recognized NFC record to be placed on the player.
 
 Press `Ctrl+C` to stop the program.
+
+## Optional: Run MyVinyl Automatically at Boot
+
+MyVinyl can be configured to start automatically when the Raspberry Pi powers on, allowing it to operate without a laptop or terminal connection.
+
+### 6. Create a systemd service
+
+Create the service file:
+
+```bash
+sudo nano /etc/systemd/system/MyVinyl.service
+```
+
+Add:
+
+```ini
+[Unit]
+Description=MyVinyl Record Player
+Wants=network-online.target
+After=network-online.target sound.target
+
+[Service]
+Type=simple
+User=stamp
+WorkingDirectory=/home/stamp/MyVinyl
+ExecStart=/home/stamp/MyVinyl/.venv/bin/python /home/stamp/MyVinyl/src/main.py
+
+Environment=PYTHONUNBUFFERED=1
+
+Restart=on-failure
+RestartSec=5
+
+KillSignal=SIGINT
+TimeoutStopSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+If your Raspberry Pi username or project directory is different, update `User`, `WorkingDirectory`, and `ExecStart` accordingly.
+
+### 7. Enable the service
+
+Reload systemd:
+
+```bash
+sudo systemctl daemon-reload
+```
+
+Enable MyVinyl at startup:
+
+```bash
+sudo systemctl enable MyVinyl
+```
+
+Start it immediately:
+
+```bash
+sudo systemctl start MyVinyl
+```
+
+### 8. Check the service
+
+Check whether MyVinyl is running:
+
+```bash
+systemctl status MyVinyl
+```
+
+View live program output:
+
+```bash
+journalctl -u MyVinyl -f
+```
+
+Pressing `Ctrl+C` while viewing the journal only exits the log viewer. MyVinyl will continue running in the background.
+
+### Managing MyVinyl
+
+```bash
+sudo systemctl start MyVinyl
+sudo systemctl stop MyVinyl
+sudo systemctl restart MyVinyl
+```
+
+Once enabled, MyVinyl will automatically start whenever the Raspberry Pi boots and wait for an NFC record to be placed on the player, so long as the Pi is powered on and has internet access
